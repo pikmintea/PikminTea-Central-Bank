@@ -1,13 +1,184 @@
 ﻿@page "/wallet"
+@using Microsoft.AspNetCore.Authorization
+@using PTCB.Data
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize]
 @rendermode InteractiveServer
+@inject BankService Bank
+@inject ApplicationDbContext Db
+@inject AuthenticationStateProvider Auth
 
 <PageTitle>Wallet</PageTitle>
-
 <h1>Wallet</h1>
+<h2>Current Balance = @balance Σ</h2>
 
-<h2>Current Balcence = @SumSum Σ</h2>
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success")" role="alert">@message</div>
+}
+
+<div class="row mt-4">
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header">Deposit</div>
+            <div class="card-body">
+                <EditForm Model="@depositModel" OnValidSubmit="DepositAsync">
+                    <label class="form-label">Amount (Σ)</label>
+                    <InputNumber class="form-control mb-2" @bind-Value="depositModel.Amount" />
+                    <button type="submit" class="btn btn-primary w-100">Deposit</button>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header">Withdraw</div>
+            <div class="card-body">
+                <EditForm Model="@withdrawModel" OnValidSubmit="WithdrawAsync">
+                    <label class="form-label">Amount (Σ)</label>
+                    <InputNumber class="form-control mb-2" @bind-Value="withdrawModel.Amount" />
+                    <button type="submit" class="btn btn-warning w-100">Withdraw</button>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header">Transfer</div>
+            <div class="card-body">
+                <EditForm Model="@transferModel" OnValidSubmit="TransferAsync">
+                    <label class="form-label">To</label>
+                    @if (recipients == null)
+                    {
+                        <p><em>Loading users...</em></p>
+                    }
+                    else if (recipients.Count == 0)
+                    {
+                        <p><em>No other users available.</em></p>
+                    }
+                    else
+                    {
+                        <InputSelect class="form-control mb-2" @bind-Value="transferModel.ToUserId">
+                            <option value="">Select recipient</option>
+                            @foreach (var r in recipients)
+                            {
+                                <option value="@r.Id">@r.UserName</option>
+                            }
+                        </InputSelect>
+                    }
+                    <label class="form-label">Amount (Σ)</label>
+                    <InputNumber class="form-control mb-2" @bind-Value="transferModel.Amount" />
+                    <button type="submit" class="btn btn-success w-100" disabled="@(recipients is null || recipients.Count == 0)">Transfer</button>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
 @code {
-int SumSum = 0;
-    
+    private decimal balance;
+    private string? message;
+    private bool isError;
+    private string? userId;
+    private List<ApplicationUser>? recipients;
 
+    private DepositModel depositModel = new();
+    private WithdrawModel withdrawModel = new();
+    private TransferModel transferModel = new();
+
+    private class DepositModel
+    {
+        public decimal Amount { get; set; }
+    }
+
+    private class WithdrawModel
+    {
+        public decimal Amount { get; set; }
+    }
+
+    private class TransferModel
+    {
+        public string? ToUserId { get; set; }
+        public decimal Amount { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        var user = state.User;
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
+            {
+                balance = await Bank.GetBalanceAsync(userId);
+                recipients = await Db.Users
+                    .Where(u => u.Id != userId)
+                    .OrderBy(u => u.UserName)
+                    .ToListAsync();
+            }
+        }
+    }
+
+    private async Task DepositAsync()
+    {
+        try
+        {
+            balance = await Bank.DepositAsync(userId!, depositModel.Amount);
+            depositModel.Amount = 0;
+            SetMessage($"Deposited successfully. New balance: {balance} Σ");
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private async Task WithdrawAsync()
+    {
+        try
+        {
+            balance = await Bank.WithdrawAsync(userId!, withdrawModel.Amount);
+            withdrawModel.Amount = 0;
+            SetMessage($"Withdrawn successfully. New balance: {balance} Σ");
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private async Task TransferAsync()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(transferModel.ToUserId))
+            {
+                SetError("Please select a recipient.");
+                return;
+            }
+            await Bank.TransferAsync(userId!, transferModel.ToUserId, transferModel.Amount);
+            balance = await Bank.GetBalanceAsync(userId!);
+            transferModel.Amount = 0;
+            SetMessage($"Transferred successfully. New balance: {balance} Σ");
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private void SetMessage(string msg)
+    {
+        message = msg;
+        isError = false;
+    }
+
+    private void SetError(string msg)
+    {
+        message = msg;
+        isError = true;
+    }
 }

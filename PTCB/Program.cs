@@ -31,6 +31,8 @@ var txConnectionString = builder.Configuration.GetConnectionString("Transactions
                          throw new InvalidOperationException("TransactionsConnection not found.");
 builder.Services.AddDbContext<TransactionDbContext>(options =>
     options.UseSqlite(txConnectionString));
+
+builder.Services.AddScoped<BankService>();
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
@@ -69,5 +71,8 @@ app.MapRazorComponents<App>()
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
+
+var dataDir = Path.Combine(app.Environment.ContentRootPath, "Data");
+Directory.CreateDirectory(dataDir);
 
 app.Run();
