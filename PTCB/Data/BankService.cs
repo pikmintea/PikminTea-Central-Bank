@@ -123,4 +123,36 @@ public class BankService
             .OrderByDescending(t => t.Timestamp)
             .ToListAsync();
     }
+    public async Task<decimal> SetBalanceAsync(string userId, decimal newBalance)
+    {
+        if (newBalance < 0)
+            throw new ArgumentException("Balance cannot be negative.", nameof(newBalance));
+
+        var user = await _usersDb.Users.FindAsync(userId)
+                   ?? throw new InvalidOperationException("User not found.");
+
+        var difference = newBalance - user.SumSumBalance;
+        user.SumSumBalance = newBalance;
+
+        _txDb.Transactions.Add(new Transaction
+        {
+            UserId = userId,
+            Amount = difference,
+            Type = "AdminAdjustment",
+            Description = "Balance set by admin",
+            Timestamp = DateTime.UtcNow
+        });
+
+        await _usersDb.SaveChangesAsync();
+        await _txDb.SaveChangesAsync();
+
+        return user.SumSumBalance;
+    }
+
+    public async Task<List<Transaction>> GetAllTransactionsAsync()
+    {
+        return await _txDb.Transactions
+            .OrderByDescending(t => t.Timestamp)
+            .ToListAsync();
+    }
 }

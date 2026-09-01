@@ -54,8 +54,12 @@ var app = builder.Build();
 var dataDir = Path.Combine(app.Environment.ContentRootPath, "Data");
 Directory.CreateDirectory(dataDir);
 
-
-using (var scope = app.Services.CreateScope()) await DbSeeder.SeedAdminAsync(scope.ServiceProvider);
+using (var scope = app.Services.CreateScope())
+{
+    await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<TransactionDbContext>().Database.MigrateAsync();
+    await DbSeeder.SeedAdminAsync(scope.ServiceProvider);
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
