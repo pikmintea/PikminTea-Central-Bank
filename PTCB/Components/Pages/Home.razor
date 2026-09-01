@@ -1,7 +1,47 @@
 ﻿@page "/"
 
+@using Microsoft.AspNetCore.Authorization
+@using PTCB.Data
+@rendermode InteractiveServer
+@inject BankService Bank
+@inject AuthenticationStateProvider Auth
+
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>Welcome to PTCB</h1>
 
-Welcome to your new app.
+@if (authenticated)
+{
+    <p>Hello <strong>@userName</strong>.</p>
+    <p>Your current balance is <strong>@balance.ToString("0.00") Σ</strong>.</p>
+    <a class="btn btn-primary" href="wallet">Go to wallet</a>
+    <a class="btn btn-secondary" href="weather">View transactions</a>
+}
+else
+{
+    <p>Welcome to the PTCB. You need an account to get started.</p>
+    <a class="btn btn-primary" href="Account/Login">Log in</a>
+    <a class="btn btn-secondary" href="Account/Register">Register</a>
+}
+
+@code {
+    private bool authenticated;
+    private string? userName;
+    private decimal balance;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        authenticated = state.User.Identity?.IsAuthenticated == true;
+
+        if (authenticated)
+        {
+            userName = state.User.Identity?.Name;
+            var userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId is not null)
+            {
+                balance = await Bank.GetBalanceAsync(userId);
+            }
+        }
+    }
+}

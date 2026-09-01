@@ -96,13 +96,12 @@ else
 @code {
     private List<UserRow> rows = new();
     private List<Transaction>? txs;
-    private Dictionary<string, decimal> amounts = new();
     private Dictionary<string, string> userNames = new();
     private string? message;
 
     private sealed class UserRow
     {
-        public decimal Amount;
+        public decimal Amount { get; set; }
         public ApplicationUser User { get; set; } = default!;
         public bool IsAdmin { get; set; }
     }
