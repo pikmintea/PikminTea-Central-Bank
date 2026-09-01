@@ -3,3 +3,10 @@
 /src/PTCB.Domain/obj
 /src/PTCB.Api/bin
 /src/PTCB.Domain/bin
+/src/PTCB.api/PTCB.api/obj
+/PTCB/.idea
+/PTCB/PTCB/bin
+
+/.run
+/PTCB/bin
+/PTCB/obj

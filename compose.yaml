@@ -1,0 +1,7 @@
+﻿services:
+  ptcb:
+    image: ptcb
+    build:
+      context: .
+      dockerfile: PTCB/Dockerfile
+

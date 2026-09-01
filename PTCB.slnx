@@ -1,6 +1,6 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/PTCB.Api/PTCB.Api.csproj" />
-    <Project Path="src/PTCB.Domain/PTCB.Domain.csproj" />
+  <Folder Name="/Solution Items/">
+    <File Path="compose.yaml" />
   </Folder>
+  <Project Path="PTCB/PTCB.csproj" />
 </Solution>
