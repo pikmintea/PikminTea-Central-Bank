@@ -38,7 +38,7 @@
             <td>@(row.IsAdmin ? "Yes" : "No")</td>
             <td>@(row.User.LockoutEnd is null ? "Active" : "Banned")</td>
             <td>
-                <InputNumber @bind-Value="amounts[row.User.Id]" class="form-control" style="width: 8rem"/>
+                <InputNumber @bind-Value="row.Amount" class="form-control" style="width: 8rem"/>
             </td>
             <td>
                 <button class="btn btn-sm btn-success" @onclick="() => DepositAsync(row)">Deposit</button>
@@ -102,6 +102,7 @@ else
 
     private sealed class UserRow
     {
+        public decimal Amount;
         public ApplicationUser User { get; set; } = default!;
         public bool IsAdmin { get; set; }
     }
@@ -114,14 +115,14 @@ else
     private async Task LoadAsync()
     {
         rows.Clear();
-        amounts.Clear();
+
         userNames.Clear();
 
         var users = await Db.Users.OrderBy(u => u.UserName).ToListAsync();
         foreach (var user in users)
         {
             rows.Add(new UserRow { User = user, IsAdmin = await UserManager.IsInRoleAsync(user, "Admin") });
-            amounts[user.Id] = 0;
+           
             userNames[user.Id] = user.UserName ?? "?";
         }
 
@@ -130,17 +131,17 @@ else
 
     private async Task DepositAsync(UserRow row)
     {
-        await RunActionAsync(() => Bank.DepositAsync(row.User.Id, amounts[row.User.Id]));
+        await RunActionAsync(() => Bank.DepositAsync(row.User.Id, row.Amount));
     }
 
     private async Task WithdrawAsync(UserRow row)
     {
-        await RunActionAsync(() => Bank.WithdrawAsync(row.User.Id, amounts[row.User.Id]));
+        await RunActionAsync(() => Bank.WithdrawAsync(row.User.Id, row.Amount));
     }
 
     private async Task SetBalanceAsync(UserRow row)
     {
-        await RunActionAsync(() => Bank.SetBalanceAsync(row.User.Id, amounts[row.User.Id]));
+        await RunActionAsync(() => Bank.SetBalanceAsync(row.User.Id, (decimal)row.Amount));
     }
 
     private async Task ToggleBanAsync(UserRow row)
