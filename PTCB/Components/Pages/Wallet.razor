@@ -17,34 +17,8 @@
     <div class="alert @(isError ? "alert-danger" : "alert-success")" role="alert">@message</div>
 }
 
-<div class="row mt-4">
-    <div class="col-md-4 mb-3">
-        <div class="card">
-            <div class="card-header">Deposit</div>
-            <div class="card-body">
-                <EditForm Model="@depositModel" OnValidSubmit="DepositAsync">
-                    <label class="form-label">Amount (Σ)</label>
-                    <InputNumber class="form-control mb-2" @bind-Value="depositModel.Amount" />
-                    <button type="submit" class="btn btn-primary w-100">Deposit</button>
-                </EditForm>
-            </div>
-        </div>
-    </div>
 
-    <div class="col-md-4 mb-3">
-        <div class="card">
-            <div class="card-header">Withdraw</div>
-            <div class="card-body">
-                <EditForm Model="@withdrawModel" OnValidSubmit="WithdrawAsync">
-                    <label class="form-label">Amount (Σ)</label>
-                    <InputNumber class="form-control mb-2" @bind-Value="withdrawModel.Amount" />
-                    <button type="submit" class="btn btn-warning w-100">Withdraw</button>
-                </EditForm>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4 mb-3">
+<div class="col-md-4 mb-3">
         <div class="card">
             <div class="card-header">Transfer</div>
             <div class="card-body">
@@ -75,7 +49,7 @@
             </div>
         </div>
     </div>
-</div>
+
 
 @code {
     private decimal balance;
@@ -169,6 +143,7 @@
             SetError(ex.Message);
         }
     }
+    
 
     private void SetMessage(string msg)
     {
