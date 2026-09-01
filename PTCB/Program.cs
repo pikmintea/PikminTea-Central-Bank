@@ -51,6 +51,10 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 
 var app = builder.Build();
 
+var dataDir = Path.Combine(app.Environment.ContentRootPath, "Data");
+Directory.CreateDirectory(dataDir);
+
+
 using (var scope = app.Services.CreateScope()) await DbSeeder.SeedAdminAsync(scope.ServiceProvider);
 
 // Configure the HTTP request pipeline.
@@ -77,7 +81,5 @@ app.MapRazorComponents<App>()
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
 
-var dataDir = Path.Combine(app.Environment.ContentRootPath, "Data");
-Directory.CreateDirectory(dataDir);
 
 app.Run();
