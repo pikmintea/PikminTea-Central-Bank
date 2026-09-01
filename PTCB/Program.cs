@@ -23,9 +23,14 @@ builder.Services.AddAuthentication(options =>
     .AddIdentityCookies();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ??
-                       throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+                       throw new InvalidOperationException("DefaultConnection not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(connectionString));
+
+var txConnectionString = builder.Configuration.GetConnectionString("TransactionsConnection") ??
+                         throw new InvalidOperationException("TransactionsConnection not found.");
+builder.Services.AddDbContext<TransactionDbContext>(options =>
+    options.UseSqlite(txConnectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
