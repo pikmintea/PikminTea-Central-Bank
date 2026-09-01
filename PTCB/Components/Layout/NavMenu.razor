@@ -4,7 +4,7 @@
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">PTCB</a>
+        <a class="navbar-brand" href="">PikminTea central bank</a>
     </div>
 </div>
 
@@ -23,6 +23,24 @@
                 <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> wallet
             </NavLink>
         </div>
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="giftcards">
+                        <span class="bi bi-gift-nav-menu" aria-hidden="true"></span> Gift Cards
+                    </NavLink>
+                </div>
+                @if (context.User.Identity?.Name == PTCB.Data.BankService.CentralBankUserName)
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="central-bank">
+                            <span class="bi bi-bank-nav-menu" aria-hidden="true"></span> Central Bank
+                        </NavLink>
+                    </div>
+                }
+            </Authorized>
+        </AuthorizeView>
 
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="weather">

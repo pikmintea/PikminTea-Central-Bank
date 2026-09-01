@@ -1,0 +1,137 @@
+@page "/central-bank"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using PTCB.Data
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject BankService Bank
+@inject AuthenticationStateProvider Auth
+@inject ApplicationDbContext Db
+
+<PageTitle>Central Bank</PageTitle>
+
+@if (!isCentralBank)
+{
+    <h1>Access Denied</h1>
+    <p>Only the central-bank account can access this page.</p>
+}
+else
+{
+    <h1>Central Bank</h1>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="text-secondary small text-uppercase">Balance</div>
+            <div class="fs-1 fw-bold">@balance Σ</div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert @(isError ? "alert-danger" : "alert-success")" role="alert">@message</div>
+    }
+
+    <div class="card mb-4">
+        <div class="card-header">Give Money</div>
+        <div class="card-body">
+            <label class="form-label">To</label>
+            <input type="text" class="form-control mb-2" placeholder="Search a username..."
+                   value="@searchTerm"
+                   @oninput="OnSearchChanged"/>
+            @if (selected is not null)
+            {
+                <div class="input-group mb-2">
+                    <span class="form-control">@selected.UserName</span>
+                    <button class="btn btn-outline-secondary" type="button" @onclick="ClearSelection">X</button>
+                </div>
+            }
+            @if (results is { Count: > 0 })
+            {
+                <ul class="list-group mb-2">
+                    @foreach (var u in results)
+                    {
+                        <li class="list-group-item list-group-item-action" style="cursor: pointer" @onclick="() => SelectUser(u)">
+                            <span class="fw-semibold">@u.UserName</span>
+                        </li>
+                    }
+                </ul>
+            }
+            <label class="form-label">Amount (Σ)</label>
+            <InputNumber class="form-control mb-3" @bind-Value="amount"/>
+            <button class="btn btn-success w-100" @onclick="GiveAsync" disabled="@(selected is null || amount <= 0)">Give</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isCentralBank;
+    private decimal balance;
+    private string? userId;
+    private decimal amount;
+    private string searchTerm = string.Empty;
+    private ApplicationUser? selected;
+    private List<ApplicationUser>? results;
+    private string? message;
+    private bool isError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        isCentralBank = state.User.Identity?.Name == BankService.CentralBankUserName;
+        if (isCentralBank && userId != null)
+            balance = await Bank.GetBalanceAsync(userId);
+    }
+
+    private async Task OnSearchChanged(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        selected = null;
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            results = null;
+            return;
+        }
+        var term = searchTerm.Trim();
+        results = await Db.Users
+            .Where(u => (u.UserName ?? string.Empty).Contains(term))
+            .OrderBy(u => u.UserName)
+            .Take(8)
+            .ToListAsync();
+    }
+
+    private void SelectUser(ApplicationUser user)
+    {
+        selected = user;
+        searchTerm = user.UserName ?? string.Empty;
+        results = null;
+    }
+
+    private void ClearSelection()
+    {
+        selected = null;
+        searchTerm = string.Empty;
+        results = null;
+    }
+
+    private async Task GiveAsync()
+    {
+        try
+        {
+            balance = await Bank.GiveFromCentralBankAsync(selected!.Id, amount, $"Gift to {selected.UserName}");
+            amount = 0;
+            ClearSelection();
+            SetMessage($"Sent successfully. Central bank balance: {balance} Σ", false);
+        }
+        catch (Exception ex)
+        {
+            SetMessage(ex.Message, true);
+        }
+    }
+
+    private void SetMessage(string msg, bool error)
+    {
+        message = msg;
+        isError = error;
+    }
+}

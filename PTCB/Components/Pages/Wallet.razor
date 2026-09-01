@@ -9,74 +9,61 @@
 @inject AuthenticationStateProvider Auth
 
 <PageTitle>Wallet</PageTitle>
-<h1>Wallet</h1>
-<h2>Current Balance = @balance Σ</h2>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="text-secondary small text-uppercase">Current Balance</div>
+        <div class="fs-1 fw-bold">@balance Σ</div>
+    </div>
+</div>
 
 @if (!string.IsNullOrEmpty(message))
 {
     <div class="alert @(isError ? "alert-danger" : "alert-success")" role="alert">@message</div>
 }
 
-
-<div class="col-md-4 mb-3">
-        <div class="card">
-            <div class="card-header">Transfer</div>
-            <div class="card-body">
-                <EditForm Model="@transferModel" OnValidSubmit="TransferAsync">
-                    <label class="form-label">To</label>
-                    @if (recipients == null)
-                    {
-                        <p><em>Loading users...</em></p>
-                    }
-                    else if (recipients.Count == 0)
-                    {
-                        <p><em>No other users available.</em></p>
-                    }
-                    else
-                    {
-                        <InputSelect class="form-control mb-2" @bind-Value="transferModel.ToUserId">
-                            <option value="">Select recipient</option>
-                            @foreach (var r in recipients)
-                            {
-                                <option value="@r.Id">@r.UserName</option>
-                            }
-                        </InputSelect>
-                    }
-                    <label class="form-label">Amount (Σ)</label>
-                    <InputNumber class="form-control mb-2" @bind-Value="transferModel.Amount" />
-                    <button type="submit" class="btn btn-success w-100" disabled="@(recipients is null || recipients.Count == 0)">Transfer</button>
-                </EditForm>
+<div class="card mb-4">
+    <div class="card-header">Transfer</div>
+    <div class="card-body">
+        <label class="form-label">To</label>
+        <input type="text" class="form-control mb-2" placeholder="Search a username..."
+               value="@searchTerm"
+               @oninput="OnSearchChanged"/>
+        @if (selected is not null)
+        {
+            <div class="input-group mb-2">
+                <span class="form-control">@selected.UserName</span>
+                <button class="btn btn-outline-secondary" type="button" @onclick="ClearSelection">X</button>
             </div>
-        </div>
+        }
+        @if (results is { Count: > 0 })
+        {
+            <ul class="list-group mb-2">
+                @foreach (var r in results)
+                {
+                    <li class="list-group-item list-group-item-action" style="cursor: pointer" @onclick="() => SelectUser(r)">
+                        <span class="fw-semibold">@r.UserName</span>
+                        <span class="float-end text-secondary">@r.SumSumBalance.ToString("0.00") Σ</span>
+                    </li>
+                }
+            </ul>
+        }
+        <label class="form-label">Amount (Σ)</label>
+        <InputNumber class="form-control mb-3" @bind-Value="amount"/>
+        <button class="btn btn-success w-100" @onclick="TransferAsync" disabled="@(selected is null || amount <= 0)">Transfer</button>
     </div>
-
+</div>
 
 @code {
     private decimal balance;
+    private decimal amount;
     private string? message;
     private bool isError;
     private string? userId;
-    private List<ApplicationUser>? recipients;
-
-    private DepositModel depositModel = new();
-    private WithdrawModel withdrawModel = new();
-    private TransferModel transferModel = new();
-
-    private class DepositModel
-    {
-        public decimal Amount { get; set; }
-    }
-
-    private class WithdrawModel
-    {
-        public decimal Amount { get; set; }
-    }
-
-    private class TransferModel
-    {
-        public string? ToUserId { get; set; }
-        public decimal Amount { get; set; }
-    }
+    private List<ApplicationUser> recipients = new();
+    private List<ApplicationUser>? results;
+    private string searchTerm = string.Empty;
+    private ApplicationUser? selected;
 
     protected override async Task OnInitializedAsync()
     {
@@ -86,56 +73,58 @@
         {
             userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId != null)
-            {
                 balance = await Bank.GetBalanceAsync(userId);
-                recipients = await Db.Users
-                    .Where(u => u.Id != userId)
-                    .OrderBy(u => u.UserName)
-                    .ToListAsync();
-            }
         }
     }
 
-    private async Task DepositAsync()
+    private async Task OnSearchChanged(ChangeEventArgs e)
     {
-        try
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        selected = null;
+        if (string.IsNullOrWhiteSpace(searchTerm))
         {
-            balance = await Bank.DepositAsync(userId!, depositModel.Amount);
-            depositModel.Amount = 0;
-            SetMessage($"Deposited successfully. New balance: {balance} Σ");
+            results = null;
+            return;
         }
-        catch (Exception ex)
-        {
-            SetError(ex.Message);
-        }
+        if (recipients.Count == 0)
+            await LoadRecipientsAsync();
+        var term = searchTerm.Trim();
+        results = recipients
+            .Where(u => u.UserName != null && u.UserName.Contains(term, StringComparison.OrdinalIgnoreCase))
+            .Take(8)
+            .ToList();
     }
 
-    private async Task WithdrawAsync()
+    private async Task LoadRecipientsAsync()
     {
-        try
-        {
-            balance = await Bank.WithdrawAsync(userId!, withdrawModel.Amount);
-            withdrawModel.Amount = 0;
-            SetMessage($"Withdrawn successfully. New balance: {balance} Σ");
-        }
-        catch (Exception ex)
-        {
-            SetError(ex.Message);
-        }
+        recipients = await Db.Users
+            .Where(u => u.Id != userId)
+            .OrderBy(u => u.UserName)
+            .ToListAsync();
+    }
+
+    private void SelectUser(ApplicationUser user)
+    {
+        selected = user;
+        searchTerm = user.UserName ?? string.Empty;
+        results = null;
+    }
+
+    private void ClearSelection()
+    {
+        selected = null;
+        searchTerm = string.Empty;
+        results = null;
     }
 
     private async Task TransferAsync()
     {
         try
         {
-            if (string.IsNullOrEmpty(transferModel.ToUserId))
-            {
-                SetError("Please select a recipient.");
-                return;
-            }
-            await Bank.TransferAsync(userId!, transferModel.ToUserId, transferModel.Amount);
+            await Bank.TransferAsync(userId!, selected!.Id, amount);
             balance = await Bank.GetBalanceAsync(userId!);
-            transferModel.Amount = 0;
+            amount = 0;
+            ClearSelection();
             SetMessage($"Transferred successfully. New balance: {balance} Σ");
         }
         catch (Exception ex)
@@ -143,7 +132,6 @@
             SetError(ex.Message);
         }
     }
-    
 
     private void SetMessage(string msg)
     {

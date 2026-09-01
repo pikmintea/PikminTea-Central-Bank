@@ -1,0 +1,69 @@
+@page "/giftcards"
+@using Microsoft.AspNetCore.Authorization
+@using PTCB.Data
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject BankService Bank
+@inject AuthenticationStateProvider Auth
+@inject NavigationManager Navigation
+
+<PageTitle>Gift Cards</PageTitle>
+<h1>Gift Cards</h1>
+
+<div class="d-flex gap-2 mb-4">
+    <button class="btn btn-success" @onclick="GoCreate">Create</button>
+    <button class="btn btn-primary" @onclick="GoRedeem">Redeem</button>
+</div>
+
+<h2>Your Gift Cards</h2>
+@if (myCards is null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (myCards.Count == 0)
+{
+    <p>No gift cards created yet.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var card in myCards)
+        {
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card @(card.IsUsed ? "bg-light" : "")">
+                    <div class="card-body">
+                        <div class="fs-4 fw-bold mb-2">@card.Code</div>
+                        <div class="text-secondary small">@card.Amount.ToString("0.00") Σ</div>
+                        <div class="text-secondary small mb-3">Created @card.CreatedAt.ToLocalTime()</div>
+                        @if (card.IsUsed)
+                        {
+                            <span class="badge bg-secondary">Used</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">Available</span>
+                            <button class="btn btn-sm btn-primary" @onclick="GoRedeem">Redeem</button>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private void GoCreate() => Navigation.NavigateTo("giftcards/create");
+
+    private void GoRedeem() => Navigation.NavigateTo("giftcards/redeem");
+
+    private string? userId;
+    private List<GiftCard>? myCards;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId != null)
+            myCards = await Bank.GetMyGiftCardsAsync(userId);
+    }
+}

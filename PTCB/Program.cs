@@ -41,7 +41,6 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
         options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
     })
     .AddRoles<IdentityRole>()
-    .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddSignInManager()
     .AddDefaultTokenProviders();
@@ -59,6 +58,7 @@ using (var scope = app.Services.CreateScope())
     await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<TransactionDbContext>().Database.MigrateAsync();
     await DbSeeder.SeedAdminAsync(scope.ServiceProvider);
+    await DbSeeder.SeedCentralBankAsync(scope.ServiceProvider);
 }
 
 // Configure the HTTP request pipeline.

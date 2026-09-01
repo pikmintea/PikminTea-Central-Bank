@@ -1,0 +1,62 @@
+@page "/giftcards/redeem"
+@using Microsoft.AspNetCore.Authorization
+@using PTCB.Data
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject BankService Bank
+@inject AuthenticationStateProvider Auth
+@inject NavigationManager Navigation
+
+<PageTitle>Redeem a Gift Card</PageTitle>
+
+<button class="btn btn-outline-secondary mb-3" @onclick="GoBack">Back</button>
+
+<h1>Redeem a Gift Card</h1>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success")" role="alert">@message</div>
+}
+
+<div class="card">
+    <div class="card-body">
+        <label class="form-label">Code</label>
+        <InputText @bind-Value="code" class="form-control mb-3" placeholder="ABC-123-DEF"/>
+        <button class="btn btn-primary w-100" @onclick="RedeemAsync" disabled="@(string.IsNullOrWhiteSpace(code))">Redeem</button>
+    </div>
+</div>
+
+@code {
+    private string? userId;
+    private string code = string.Empty;
+    private string? message;
+    private bool isError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    }
+
+    private void GoBack() => Navigation.NavigateTo("giftcards");
+
+    private async Task RedeemAsync()
+    {
+        try
+        {
+            var balance = await Bank.RedeemGiftCardAsync(userId!, code);
+            code = string.Empty;
+            SetMessage($"Gift card redeemed! New balance: {balance} Σ", false);
+        }
+        catch (Exception ex)
+        {
+            SetMessage(ex.Message, true);
+        }
+    }
+
+    private void SetMessage(string msg, bool error)
+    {
+        message = msg;
+        isError = error;
+    }
+}

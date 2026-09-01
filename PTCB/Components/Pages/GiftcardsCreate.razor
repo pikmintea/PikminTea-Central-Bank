@@ -1,0 +1,61 @@
+@page "/giftcards/create"
+@using Microsoft.AspNetCore.Authorization
+@using PTCB.Data
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject BankService Bank
+@inject AuthenticationStateProvider Auth
+@inject NavigationManager Navigation
+
+<PageTitle>Create a Gift Card</PageTitle>
+
+<button class="btn btn-outline-secondary mb-3" @onclick="GoBack">Back</button>
+
+<h1>Create a Gift Card</h1>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success")" role="alert">@message</div>
+}
+
+<div class="card">
+    <div class="card-body">
+        <label class="form-label">Amount (Σ)</label>
+        <InputNumber @bind-Value="createAmount" class="form-control mb-3"/>
+        <button class="btn btn-success w-100" @onclick="CreateAsync" disabled="@(createAmount <= 0)">Create</button>
+    </div>
+</div>
+
+@code {
+    private string? userId;
+    private decimal createAmount;
+    private string? message;
+    private bool isError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    }
+
+    private void GoBack() => Navigation.NavigateTo("giftcards");
+
+    private async Task CreateAsync()
+    {
+        try
+        {
+            var code = await Bank.CreateGiftCardAsync(userId!, createAmount);
+            SetMessage($"Gift card created! Code: {code}", false);
+        }
+        catch (Exception ex)
+        {
+            SetMessage(ex.Message, true);
+        }
+    }
+
+    private void SetMessage(string msg, bool error)
+    {
+        message = msg;
+        isError = error;
+    }
+}
