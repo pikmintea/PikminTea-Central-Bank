@@ -22,48 +22,60 @@
     <div class="alert @(isError ? "alert-danger" : "alert-success")" role="alert">@message</div>
 }
 
-<div class="card mb-4">
-    <div class="card-header">Transfer</div>
-    <div class="card-body">
-        <label class="form-label">To</label>
-        <input type="text" class="form-control mb-2" placeholder="Search a username..."
-               value="@searchTerm"
-               @oninput="OnSearchChanged"/>
-        @if (selected is not null)
-        {
-            <div class="input-group mb-2">
-                <span class="form-control">@selected.UserName</span>
-                <button class="btn btn-outline-secondary" type="button" @onclick="ClearSelection">X</button>
-            </div>
-        }
-        @if (results is { Count: > 0 })
-        {
-            <ul class="list-group mb-2">
-                @foreach (var r in results)
-                {
-                    <li class="list-group-item list-group-item-action" style="cursor: pointer" @onclick="() => SelectUser(r)">
-                        <span class="fw-semibold">@r.UserName</span>
-                        <span class="float-end text-secondary">@r.SumSumBalance.ToString("0.00") Σ</span>
-                    </li>
-                }
-            </ul>
-        }
-        <label class="form-label">Amount (Σ)</label>
-        <InputNumber class="form-control mb-3" @bind-Value="amount"/>
-        <button class="btn btn-success w-100" @onclick="TransferAsync" disabled="@(selected is null || amount <= 0)">Transfer</button>
+<EditForm Model="@transferModel" OnValidSubmit="TransferAsync">
+    <div class="card mb-4">
+        <div class="card-header">Transfer</div>
+        <div class="card-body">
+            <label class="form-label">To</label>
+            <input type="text" class="form-control mb-2" placeholder="Search a username..."
+                   value="@searchTerm"
+                   @oninput="OnSearchChanged"/>
+            @if (selected is not null)
+            {
+                <div class="input-group mb-2">
+                    <span class="form-control">@selected.UserName</span>
+                    <button class="btn btn-outline-secondary" type="button" @onclick="ClearSelection">X</button>
+                </div>
+            }
+            @if (results is { Count: > 0 })
+            {
+                <ul class="list-group mb-2">
+                    @foreach (var r in results)
+                    {
+                        <li class="list-group-item list-group-item-action" style="cursor: pointer" @onclick="() => SelectUser(r)">
+                            <span class="fw-semibold">@r.UserName</span>
+                            <span class="float-end text-secondary">@r.SumSumBalance.ToString("0.00") Σ</span>
+                        </li>
+                    }
+                </ul>
+            }
+            else if (searchTerm.Trim().Length > 0)
+            {
+                <p class="text-secondary mb-2">No matching user.</p>
+            }
+            <label class="form-label">Amount (Σ)</label>
+            <InputNumber class="form-control mb-3" @bind-Value="transferModel.Amount" min="0" step="0.01"/>
+            <button type="submit" class="btn btn-success w-100" disabled="@(selected is null || transferModel.Amount <= 0 || busy)">@(busy ? "Transferring..." : "Transfer")</button>
+        </div>
     </div>
-</div>
+</EditForm>
 
 @code {
     private decimal balance;
-    private decimal amount;
     private string? message;
     private bool isError;
+    private bool busy;
     private string? userId;
     private List<ApplicationUser> recipients = new();
     private List<ApplicationUser>? results;
     private string searchTerm = string.Empty;
     private ApplicationUser? selected;
+    private TransferModel transferModel = new();
+
+    private class TransferModel
+    {
+        public decimal Amount { get; set; }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -119,17 +131,23 @@
 
     private async Task TransferAsync()
     {
+        busy = true;
+        StateHasChanged();
         try
         {
-            await Bank.TransferAsync(userId!, selected!.Id, amount);
+            await Bank.TransferAsync(userId!, selected!.Id, transferModel.Amount);
             balance = await Bank.GetBalanceAsync(userId!);
-            amount = 0;
+            transferModel.Amount = 0;
             ClearSelection();
             SetMessage($"Transferred successfully. New balance: {balance} Σ");
         }
         catch (Exception ex)
         {
             SetError(ex.Message);
+        }
+        finally
+        {
+            busy = false;
         }
     }
 

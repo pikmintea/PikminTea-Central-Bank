@@ -17,43 +17,48 @@
     <div class="alert alert-danger" role="alert">@message</div>
 }
 
-<h3>Users</h3>
-<table class="table">
-    <thead>
-    <tr>
-        <th>Username</th>
-        <th>Balance</th>
-        <th>Admin</th>
-        <th>Status</th>
-        <th>Amount (Σ)</th>
-        <th>Actions</th>
-    </tr>
-    </thead>
-    <tbody>
-    @foreach (var row in rows)
-    {
-        <tr>
-            <td>@row.User.UserName</td>
-            <td>@row.User.SumSumBalance.ToString("0.00") Σ</td>
-            <td>@(row.IsAdmin ? "Yes" : "No")</td>
-            <td>@(row.User.LockoutEnd is null ? "Active" : "Banned")</td>
-            <td>
-                <InputNumber @bind-Value="row.Amount" class="form-control" style="width: 8rem"/>
-            </td>
-            <td>
-                <button class="btn btn-sm btn-success" @onclick="() => DepositAsync(row)">Deposit</button>
-                <button class="btn btn-sm btn-warning" @onclick="() => WithdrawAsync(row)">Withdraw</button>
-                <button class="btn btn-sm btn-secondary" @onclick="() => SetBalanceAsync(row)">Set</button>
-                <button class="btn btn-sm btn-danger" @onclick="() => ToggleBanAsync(row)">
-                    @(row.User.LockoutEnd is null ? "Ban" : "Unban")
-                </button>
-                <button class="btn btn-sm btn-danger" @onclick="() => DeleteAsync(row)">Delete</button>
-            
-            </td>
-        </tr>
-    }
-    </tbody>
-</table>
+<div class="card mb-4">
+        <div class="card-header">Users</div>
+        <div class="card-body table-responsive">
+            <table class="table mb-0">
+                <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Balance</th>
+                    <th>Admin</th>
+                    <th>Status</th>
+                    <th>Amount (Σ)</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in rows)
+                {
+                    <tr>
+                        <td>@row.User.UserName</td>
+                        <td>@row.User.SumSumBalance.ToString("0.00") Σ</td>
+                        <td>@(row.IsAdmin ? "Yes" : "No")</td>
+                        <td>@(row.User.LockoutEnd is null ? "Active" : "Banned")</td>
+                        <td>
+                            <InputNumber @bind-Value="row.Amount" min="0" step="0.01" class="form-control" style="width: 8rem"/>
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1 flex-wrap">
+                                <button class="btn btn-sm btn-success" @onclick="() => DepositAsync(row)" disabled="@busy">Deposit</button>
+                                <button class="btn btn-sm btn-warning" @onclick="() => WithdrawAsync(row)" disabled="@busy">Withdraw</button>
+                                <button class="btn btn-sm btn-secondary" @onclick="() => SetBalanceAsync(row)" disabled="@busy">Set</button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => ToggleBanAsync(row)" disabled="@busy">
+                                    @(row.User.LockoutEnd is null ? "Ban" : "Unban")
+                                </button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => DeleteAsync(row)" disabled="@busy">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
 
 <h3>All Transactions</h3>
 @if (txs is null)
@@ -96,6 +101,7 @@ else
     private List<Transaction>? txs;
     private Dictionary<string, string> userNames = new();
     private string? message;
+    private bool busy;
 
     private sealed class UserRow
     {
@@ -143,27 +149,47 @@ else
 
     private async Task ToggleBanAsync(UserRow row)
     {
-        if (row.User.LockoutEnd is null)
+        busy = true;
+        StateHasChanged();
+        try
         {
-            await UserManager.SetLockoutEnabledAsync(row.User, true);
-            await UserManager.SetLockoutEndDateAsync(row.User, DateTimeOffset.MaxValue);
+            if (row.User.LockoutEnd is null)
+            {
+                await UserManager.SetLockoutEnabledAsync(row.User, true);
+                await UserManager.SetLockoutEndDateAsync(row.User, DateTimeOffset.MaxValue);
+            }
+            else
+            {
+                await UserManager.SetLockoutEndDateAsync(row.User, null);
+            }
+            message = null;
+            await LoadAsync();
         }
-        else
+        finally
         {
-            await UserManager.SetLockoutEndDateAsync(row.User, null);
+            busy = false;
         }
-        message = null;
-        await LoadAsync();
     }
 
     private async Task DeleteAsync(UserRow row)
     {
-        await UserManager.DeleteAsync(row.User); 
-        await LoadAsync();
+        busy = true;
+        StateHasChanged();
+        try
+        {
+            await UserManager.DeleteAsync(row.User);
+            await LoadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
     }
 
     private async Task RunActionAsync(Func<Task<decimal>> action)
     {
+        busy = true;
+        StateHasChanged();
         try
         {
             await action();
@@ -172,6 +198,10 @@ else
         catch (Exception ex)
         {
             message = ex.Message;
+        }
+        finally
+        {
+            busy = false;
         }
         await LoadAsync();
     }

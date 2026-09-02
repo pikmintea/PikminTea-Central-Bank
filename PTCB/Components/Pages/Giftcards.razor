@@ -10,9 +10,16 @@
 <PageTitle>Gift Cards</PageTitle>
 <h1>Gift Cards</h1>
 
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="text-secondary small text-uppercase">Current Balance</div>
+        <div class="fs-1 fw-bold">@balance Σ</div>
+    </div>
+</div>
+
 <div class="d-flex gap-2 mb-4">
     <button class="btn btn-success" @onclick="GoCreate">Create</button>
-    <button class="btn btn-primary" @onclick="GoRedeem">Redeem</button>
+    <button class="btn btn-primary" @onclick="() => GoRedeem()">Redeem</button>
 </div>
 
 <h2>Your Gift Cards</h2>
@@ -42,7 +49,7 @@ else
                         else
                         {
                             <span class="badge bg-success">Available</span>
-                            <button class="btn btn-sm btn-primary" @onclick="GoRedeem">Redeem</button>
+                            <button class="btn btn-sm btn-primary" @onclick="() => GoRedeem(card.Code)">Redeem</button>
                         }
                     </div>
                 </div>
@@ -52,11 +59,8 @@ else
 }
 
 @code {
-    private void GoCreate() => Navigation.NavigateTo("giftcards/create");
-
-    private void GoRedeem() => Navigation.NavigateTo("giftcards/redeem");
-
     private string? userId;
+    private decimal balance;
     private List<GiftCard>? myCards;
 
     protected override async Task OnInitializedAsync()
@@ -64,6 +68,14 @@ else
         var state = await Auth.GetAuthenticationStateAsync();
         userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (userId != null)
+        {
+            balance = await Bank.GetBalanceAsync(userId);
             myCards = await Bank.GetMyGiftCardsAsync(userId);
+        }
     }
+
+    private void GoCreate() => Navigation.NavigateTo("giftcards/create");
+
+    private void GoRedeem(string? code = null)
+        => Navigation.NavigateTo(string.IsNullOrEmpty(code) ? "giftcards/redeem" : $"giftcards/redeem?code={Uri.EscapeDataString(code)}");
 }

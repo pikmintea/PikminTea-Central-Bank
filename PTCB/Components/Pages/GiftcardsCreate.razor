@@ -6,6 +6,7 @@
 @inject BankService Bank
 @inject AuthenticationStateProvider Auth
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Create a Gift Card</PageTitle>
 
@@ -21,16 +22,31 @@
 <div class="card">
     <div class="card-body">
         <label class="form-label">Amount (Σ)</label>
-        <InputNumber @bind-Value="createAmount" class="form-control mb-3"/>
-        <button class="btn btn-success w-100" @onclick="CreateAsync" disabled="@(createAmount <= 0)">Create</button>
+        <InputNumber @bind-Value="createAmount" min="0" step="0.01" class="form-control mb-3"/>
+        <button class="btn btn-success w-100" @onclick="CreateAsync" disabled="@(createAmount <= 0 || busy)">@(busy ? "Creating..." : "Create")</button>
     </div>
 </div>
+
+@if (createdCode is not null)
+{
+    <div class="card mt-4 border-success">
+        <div class="card-body text-center">
+            <div class="text-success small text-uppercase">Gift Card Created</div>
+            <div class="fs-2 fw-bold my-2">@createdCode</div>
+            <div class="text-secondary mb-3">@createdAmount.ToString("0.00") Σ</div>
+            <button class="btn btn-outline-primary" @onclick="CopyAsync">Copy code</button>
+        </div>
+    </div>
+}
 
 @code {
     private string? userId;
     private decimal createAmount;
+    private string? createdCode;
+    private decimal createdAmount;
     private string? message;
     private bool isError;
+    private bool busy;
 
     protected override async Task OnInitializedAsync()
     {
@@ -42,15 +58,32 @@
 
     private async Task CreateAsync()
     {
+        busy = true;
+        StateHasChanged();
         try
         {
             var code = await Bank.CreateGiftCardAsync(userId!, createAmount);
-            SetMessage($"Gift card created! Code: {code}", false);
+            createdCode = code;
+            createdAmount = createAmount;
+            createAmount = 0;
+            SetMessage("Gift card created!", false);
         }
         catch (Exception ex)
         {
+            createdCode = null;
             SetMessage(ex.Message, true);
         }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task CopyAsync()
+    {
+        if (createdCode is null) return;
+        await JS.InvokeVoidAsync("copyToClipboard", createdCode);
+        SetMessage($"Code @{createdCode} copied!", false);
     }
 
     private void SetMessage(string msg, bool error)
